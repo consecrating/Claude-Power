@@ -1,0 +1,82 @@
+name: validate
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ripgrep
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+
+      - name: Install PyYAML
+        run: pip install --quiet pyyaml
+
+      - name: Validate Kiro config (schema, names, hooks, scripts)
+        run: bash .kiro/scripts/validate-config.sh
+
+      - name: Validate frontmatter (strict YAML, documented fields only)
+        run: python3 .kiro/scripts/validate-frontmatter.py
+
+      - name: Shell syntax check
+        run: |
+          for f in $(git ls-files '*.sh'); do bash -n "$f" || exit 1; done
+          echo "all shell scripts parse"
+
+      - name: Shellcheck
+        run: |
+          sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning $(git ls-files '*.sh')
+
+      - name: Hook JSON is valid and uses no credit-consuming actions
+        run: |
+          for f in $(git ls-files '.kiro/hooks/*.json'); do
+            jq -e . "$f" >/dev/null || { echo "invalid JSON: $f"; exit 1; }
+            if jq -e '.hooks[] | select(.action.type == "agent")' "$f" >/dev/null 2>&1; then
+              echo "WARNING: $f contains an agent action, which consumes credits"
+            fi
+          done
+          echo "hook JSON OK"
+
+      - name: Scripts are executable
+        run: |
+          fail=0
+          for f in $(git ls-files '*.sh'); do
+            if [ ! -x "$f" ]; then echo "not executable: $f (git update-index --chmod=+x $f)"; fail=1; fi
+          done
+          exit $fail
+
+      - name: No committed secrets
+        run: |
+          if git grep -nEI '(AKIA[0-9A-Z]{16}|sk-[a-zA-Z0-9]{32,}|ghp_[a-zA-Z0-9]{36})' -- . ':!.github/workflows'; then
+            echo "possible credential committed"; exit 1
+          fi
+          echo "no credential patterns found"
+
+      - name: Working-memory scripts run end to end
+        run: |
+          export KIRO_MEMORY_DIR=$(mktemp -d)/mem
+          export KIRO_LEARNINGS_DIR=$(mktemp -d)/learn
+          M=.kiro/skills/context-durability/scripts/memory.sh
+          L=.kiro/skills/self-improvement/scripts/capture-learning.sh
+          bash $M init "CI smoke test"
+          bash $M constraint "no network"
+          bash $M criterion "memory script works"
+          bash $M note "ci run"
+          bash $M file README.md "docs"
+          bash $M next "finish"
+          bash $M check "memory script works"
+          bash $M status
+          bash $M render
+          bash $M verify
+          bash $L add "ci learning" ci
+          bash $L list
+          bash $L promote 1 >/dev/null
+          bash $L rm 1
+          echo "scripts OK"
