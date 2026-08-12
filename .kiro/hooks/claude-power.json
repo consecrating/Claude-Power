@@ -1,0 +1,48 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "restore-working-memory",
+      "description": "At session start, print the on-disk task state into context: goal, constraints, open acceptance criteria, recent decisions, next action. This is what lets a new or post-compaction session resume without re-deriving anything. Command actions consume no credits, and stdout from SessionStart is added to context.",
+      "trigger": "SessionStart",
+      "action": {
+        "type": "command",
+        "command": "bash .kiro/skills/context-durability/scripts/memory.sh status 2>/dev/null || true"
+      },
+      "timeout": 10
+    },
+    {
+      "name": "snapshot-working-memory",
+      "description": "When the agent finishes responding, re-render .kiro/.memory/TASK.md so the human-readable snapshot is always current. Side effect only; Stop hook stdout is not added to context.",
+      "trigger": "Stop",
+      "action": {
+        "type": "command",
+        "command": "bash .kiro/skills/context-durability/scripts/memory.sh render >/dev/null 2>&1 || true"
+      },
+      "timeout": 10
+    },
+    {
+      "name": "validate-kiro-config-on-save",
+      "description": "Validate a skill or steering file immediately after it is saved. A non-zero exit surfaces the problem as a warning, which catches the silent failure mode where a malformed SKILL.md or an invalid inclusion mode means the file never loads at all.",
+      "trigger": "PostFileSave",
+      "matcher": "\\.kiro/(skills|steering)/.*\\.md$",
+      "action": {
+        "type": "command",
+        "command": "bash .kiro/scripts/validate-config.sh"
+      },
+      "timeout": 30
+    },
+    {
+      "name": "block-secret-commits",
+      "description": "Scan staged content for credential patterns before a git commit runs. Exit 2 blocks the tool call and returns stderr to the agent. Disabled by default because the matcher fires on every shell call and the pattern set needs tuning per repo; enable it deliberately.",
+      "trigger": "PreToolUse",
+      "matcher": "execute_bash|shell",
+      "enabled": false,
+      "action": {
+        "type": "command",
+        "command": "if git diff --cached 2>/dev/null | grep -qEi '(api[_-]?key|secret|password|private[_-]key)[\"'\\'' ]*[:=]|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}'; then echo 'Blocked: staged changes appear to contain a credential. Unstage it, and rotate the secret if it was ever committed.' >&2; exit 2; fi"
+      },
+      "timeout": 15
+    }
+  ]
+}

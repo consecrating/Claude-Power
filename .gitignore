@@ -1,0 +1,17 @@
+# Agent working memory. Local by default: it is scratch state for an in-flight
+# task, not project history. Comment this out if you want checkpoints to travel
+# with the branch so reviewers can audit the agent's reasoning.
+.kiro/.memory/
+
+# Captured learnings staged for review before promotion into steering.
+.kiro/.learnings/
+
+# Redirected command output (see skill: token-efficiency)
+*.buildlog
+*.testlog
+.kiro/.tmp/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
