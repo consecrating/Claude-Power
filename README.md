@@ -46,6 +46,10 @@ surface.
 
 Kiro Web and Mobile read **only** project-scoped config committed to the repo.
 
+### `token-efficiency` ownership
+
+Claude-Power's `token-efficiency` tree is canonical **only in combined SuperBrain installations**. All-Skills intentionally preserves a different standalone copy and its no-argument installer continues to install that copy. SuperBrain reads All-Skills' public conflict metadata, keeps `token-efficiency` out of the combined All-Skills receipt, and publishes this repository's complete source tree for the overlap. Claude-Power remains standalone and does not depend on SuperBrain.
+
 ```bash
 # From your project root
 git clone https://github.com/consecrating/Claude-Power.git /tmp/claude-power
