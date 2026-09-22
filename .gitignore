@@ -11,6 +11,10 @@
 *.testlog
 .kiro/.tmp/
 
+# Bytecode from running the helper scripts (context-budget imports a module).
+__pycache__/
+*.py[cod]
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
