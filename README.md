@@ -1,6 +1,6 @@
 # Claude-Power
 
-A Kiro configuration pack: **16 skills**, 2 steering rules, 2 custom agents, 4 hooks,
+A Kiro configuration pack: **17 skills**, 2 steering rules, 2 custom agents, 4 hooks,
 and 2 validated helper scripts. Built to make Kiro — including **Autonomous (Auto)
 mode** — token-frugal, resistant to context loss in long sessions, model-aware, and
 able to turn your corrections into durable rules.
@@ -17,7 +17,7 @@ and it would be dishonest to ship config that pretends otherwise.
 
 | Goal | Status | Reality |
 |---|---|---|
-| Minimal tokens / credits | ✅ Done | `token-efficiency` skill + a deliberately tiny always-on core. Real measurements below. |
+| Minimal tokens / credits | ✅ Done | `token-efficiency` + `autonomous-budget` skills. Budget caps, early termination, burn monitoring. |
 | Don't forget things in long chats | ✅ Done | `context-durability` skill + `memory.sh`. Compaction is automatic and **irreversible**, so durable state is written to disk. |
 | Self-improve over time | ✅ Done | `self-improvement` skill + `capture-learning.sh`. Human-in-the-loop by design. |
 | **Force Auto mode onto Opus 5 / 4.8** | ⚠️ **Not possible** | **In Kiro Web Autonomous mode the agent picks the model automatically — it cannot be pinned.** The only mechanism with a `model` field is custom agents, and `.kiro/agents/` is **not read on Web or Mobile**. |
@@ -75,13 +75,13 @@ would overwrite your own project context. The validator fails if anyone adds the
 
 ---
 
-## The 16 skills
+## The 17 skills
 
 Skills activate automatically when your request matches their description. Only the
 name and description are loaded at startup; the body loads on activation, and
 `references/` load only when the body points to them.
 
-### Core — the four requirements
+### Core — the five requirements
 
 | Skill | Use it for |
 |---|---|
@@ -90,6 +90,12 @@ name and description are loaded at startup; the body loads on activation, and
 | `model-profiles` | Routing work to the right model tier; honest limits on pinning. |
 | `self-improvement` | Turning corrections into durable rules + `capture-learning.sh`. |
 | `autonomous-execution` | The Auto-mode loop: clarify → plan → execute → verify → deliver. |
+
+### Budget Control (NEW)
+
+| Skill | Use it for |
+|---|---|
+| `autonomous-budget` | **ENFORCES token budgets, early termination at 80% quality, burn monitoring, hard stops at 90%.** Prevents Opus 5/4.8 credit exhaustion. |
 
 ### Engineering
 
@@ -117,7 +123,7 @@ everything else**. Measured word counts from this repo:
 | Layer | Cost | When |
 |---|---|---|
 | `AGENTS.md` | 335 words (~450 tokens) | every turn |
-| 16 skill names + descriptions | 912 words (~1,200 tokens) | every session, at startup |
+| 17 skill names + descriptions | 1,000 words (~1,300 tokens) | every session, at startup |
 | 1 `auto` steering description | ~40 words | every session |
 | One skill body | 730–930 words | only when that skill activates |
 | `kiro-config-authoring` steering | 600 words | only when editing `.kiro/` files |
@@ -132,7 +138,7 @@ holds itself to.
 
 ### Pruning
 
-16 skill descriptions is the one unavoidable per-session cost. If you want it smaller,
+17 skill descriptions is the one unavoidable per-session cost. If you want it smaller,
 delete skill folders you do not need — they are independent. Removing all 11
 engineering skills cuts startup cost to about 300 words.
 
@@ -185,7 +191,7 @@ AGENTS.md                        always-on core directives (the token budget)
   steering/
     kiro-config-authoring.md     fileMatch: only when editing .kiro/ config
     verification-discipline.md   auto: before claiming anything is done
-  skills/                        16 skills, progressive disclosure
+  skills/                        17 skills, progressive disclosure
     <skill>/SKILL.md
     <skill>/references/*.md      loaded on demand only
     <skill>/scripts/*.sh         deterministic work
