@@ -1,0 +1,83 @@
+{
+  "name": "opus5-lean-mcp",
+  "description": "Token-efficiency MCP server for Claude Opus 5. Measures prompt costs, strips wasted tokens, plans cache strategies, and finds cheapest effort levels.",
+  "url": "http://localhost:3334",
+  "transport": "sse",
+  "tools": [
+    {
+      "name": "opus5_count",
+      "description": "Count tokens in a prompt and estimate cost. Free (unbilled) with --exact using Anthropic's count_tokens API.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "prompt": { "type": "string", "description": "The prompt text to count" },
+          "model": { "type": "string", "enum": ["claude-opus-5", "claude-opus-5-fast", "claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5"], "default": "claude-opus-5", "description": "Target model for cost calculation" }
+        },
+        "required": ["prompt"]
+      }
+    },
+    {
+      "name": "opus5_slim",
+      "description": "Strip wasted tokens from a prompt. Code is never modified. Reports exact savings.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "prompt": { "type": "string", "description": "The prompt to optimize" },
+          "aggressive": { "type": "boolean", "default": false, "description": "Also remove typographic characters and HTML comments" }
+        },
+        "required": ["prompt"]
+      }
+    },
+    {
+      "name": "opus5_cache_plan",
+      "description": "Plan cache strategy for a prompt. Identifies static vs volatile segments and calculates 80%+ savings.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "tokens": { "type": "integer" },
+                "volatility": { "type": "integer", "description": "0=never changes, 1=daily, 2=weekly, 3=monthly, 4=per-session" }
+              }
+            }
+          },
+          "requests_per_day": { "type": "integer", "default": 1000, "description": "Expected requests per day for projection" }
+        },
+        "required": ["segments"]
+      }
+    },
+    {
+      "name": "opus5_cost_estimate",
+      "description": "Calculate cost estimate for prompt usage at scale.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "input_tokens": { "type": "integer", "description": "Total input tokens (per request or total)" },
+          "output_tokens": { "type": "integer", "description": "Total output tokens (per request or total)" },
+          "requests": { "type": "integer", "default": 1, "description": "Number of requests" },
+          "model": { "type": "string", "enum": ["claude-opus-5", "claude-opus-5-fast", "claude-opus-4-8"], "default": "claude-opus-5" },
+          "use_cache": { "type": "boolean", "default": false, "description": "Estimate with cache savings (10x cheaper reads)" }
+        },
+        "required": ["input_tokens", "output_tokens"]
+      }
+    },
+    {
+      "name": "opus5_sweep",
+      "description": "Find the cheapest effort level that meets quality requirements. Requires API key with credit.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "prompt": { "type": "string", "description": "The prompt to test" },
+          "require": { "type": "string", "description": "Required pattern that must appear in output" },
+          "trials": { "type": "integer", "default": 3, "description": "Number of trials per effort level" },
+          "efforts": { "type": "array", "items": { "type": "string" }, "default": ["low", "medium", "high"], "description": "Effort levels to test" }
+        },
+        "required": ["prompt", "require"]
+      }
+    }
+  ]
+}
