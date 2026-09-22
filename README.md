@@ -1,7 +1,7 @@
 # Claude-Power
 
-A Kiro configuration pack: **16 skills**, 2 steering rules, 2 custom agents, 4 hooks,
-2 validated helper scripts, and 1 MCP server. Built to make Kiro — including **Autonomous (Auto)
+A Kiro configuration pack: **17 skills**, 2 steering rules, 2 custom agents, 4 hooks,
+4 validated helper scripts, and 1 MCP server. Built to make Kiro — including **Autonomous (Auto)
 mode** — token-frugal, resistant to context loss in long sessions, model-aware, and
 able to turn your corrections into durable rules.
 
@@ -76,7 +76,7 @@ would overwrite your own project context. The validator fails if anyone adds the
 
 ---
 
-## The 16 skills
+## The 17 skills
 
 Skills activate automatically when your request matches their description. Only the
 name and description are loaded at startup; the body loads on activation, and
@@ -87,6 +87,7 @@ name and description are loaded at startup; the body loads on activation, and
 | Skill | Use it for |
 |---|---|
 | `token-efficiency` | Shaping every tool call to return the fewest bytes that answer the question. 3 reference recipe books. |
+| `context-budget` | Measuring what the config itself costs per session, and finding skills that compete for the same requests. |
 | `context-durability` | Surviving compaction. On-disk memory protocol + `memory.sh`. |
 | `model-profiles` | Routing work to the right model tier; honest limits on pinning. |
 | `self-improvement` | Turning corrections into durable rules + `capture-learning.sh`. |
@@ -157,17 +158,27 @@ opus5-lean cache segments.json --rpd 5000  # Plan cache strategy
 The architecture is **one small always-on file + progressive disclosure for
 everything else**. Measured word counts from this repo:
 
+These numbers are **measured, not asserted** — run
+`python3 .kiro/scripts/context-budget.py --root .` to reproduce them, and
+`--budget N` to stop them drifting:
+
 | Layer | Cost | When |
 |---|---|---|
-| `AGENTS.md` | 335 words (~450 tokens) | every turn |
-| 16 skill names + descriptions | 912 words (~1,200 tokens) | every session, at startup |
-| 1 `auto` steering description | ~40 words | every session |
-| One skill body | 730–930 words | only when that skill activates |
-| `kiro-config-authoring` steering | 600 words | only when editing `.kiro/` files |
-| 5 reference files | 2,958 words total | only when a skill body points to one |
+| `AGENTS.md` | ~622 tokens | every turn |
+| 17 skill names + descriptions | ~1,600 tokens | every session, at startup |
+| 1 `auto` steering description | ~40 tokens | every session |
+| One skill body | ~700–1,200 tokens | only when that skill activates |
+| `kiro-config-authoring` steering | ~800 tokens | only when editing `.kiro/` files |
+| 5 reference files | ~6,700 tokens total | only when a skill body points to one |
 
-**Always-on total: roughly 1,300 words (~1,700 tokens).** The remaining ~15,000 words
-in this pack cost nothing until relevant.
+**Per-session standing charge: ~2,278 tokens**, of which `AGENTS.md` is ~622 and
+skill descriptions are the rest. A further ~29,800 tokens of bodies and
+references cost nothing until something triggers them.
+
+An earlier revision of this table claimed ~1,700 always-on tokens, computed by
+hand from word counts. Hand-maintained numbers drift from the files they
+describe and nobody notices which is real, which is the reason the measurement
+is now a script with a CI gate.
 
 That is the whole design. Detail lives behind a trigger, never in the always-on layer.
 The load-cost table in `.kiro/steering/kiro-config-authoring.md` is the rule the pack
@@ -175,9 +186,10 @@ holds itself to.
 
 ### Pruning
 
-16 skill descriptions is the one unavoidable per-session cost. If you want it smaller,
-delete skill folders you do not need — they are independent. Removing all 11
-engineering skills cuts startup cost to about 300 words.
+17 skill descriptions is the one unavoidable per-session cost. If you want it smaller,
+delete skill folders you do not need — they are independent. `context-budget.py`
+ranks them by what they actually cost, so prune from the top of that list rather
+than by guesswork.
 
 The only caveat: some skills cross-reference others by name (`error-recovery`,
 `pr-craft`, `token-efficiency`, `context-durability`). The validator warns about
@@ -218,6 +230,20 @@ bash .kiro/scripts/validate-config.sh .kiro/skills/pr-craft/SKILL.md
 python3 .kiro/scripts/validate-frontmatter.py  # strict YAML check
 ```
 
+`validate-*` check whether the config is *correct*. `context-budget.py` checks
+whether it is *affordable*, and whether the right skill can still be selected:
+
+```bash
+python3 .kiro/scripts/context-budget.py --root .              # measure
+python3 .kiro/scripts/context-budget.py --root . --budget 2500  # gate in CI
+python3 .kiro/scripts/context-budget.py --root . --json        # machine-readable
+python3 .kiro/scripts/test-context-budget.py                   # 43 checks, offline
+```
+
+It has no dependencies, so it always runs. When `opus5lean` (Claude-Opus5) is
+importable it uses that price table and can give exact, unbilled token counts;
+otherwise numbers are estimates and are labelled `~`.
+
 ---
 
 ## Layout
@@ -228,7 +254,7 @@ AGENTS.md                        always-on core directives (the token budget)
   steering/
     kiro-config-authoring.md     fileMatch: only when editing .kiro/ config
     verification-discipline.md   auto: before claiming anything is done
-  skills/                        16 skills, progressive disclosure
+  skills/                        17 skills, progressive disclosure
     <skill>/SKILL.md
     <skill>/references/*.md      loaded on demand only
     <skill>/scripts/*.sh         deterministic work
