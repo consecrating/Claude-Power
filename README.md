@@ -1,7 +1,7 @@
 # Claude-Power
 
-A Kiro configuration pack: **17 skills**, 2 steering rules, 2 custom agents, 4 hooks,
-and 2 validated helper scripts. Built to make Kiro — including **Autonomous (Auto)
+A Kiro configuration pack: **16 skills**, 2 steering rules, 2 custom agents, 4 hooks,
+2 validated helper scripts, and 1 MCP server. Built to make Kiro — including **Autonomous (Auto)
 mode** — token-frugal, resistant to context loss in long sessions, model-aware, and
 able to turn your corrections into durable rules.
 
@@ -17,7 +17,7 @@ and it would be dishonest to ship config that pretends otherwise.
 
 | Goal | Status | Reality |
 |---|---|---|
-| Minimal tokens / credits | ✅ Done | `token-efficiency` + `autonomous-budget` skills. Budget caps, early termination, burn monitoring. |
+| Minimal tokens / credits | ✅ Done | `opus5-lean` MCP server + `token-efficiency` skill. Real optimization tools. |
 | Don't forget things in long chats | ✅ Done | `context-durability` skill + `memory.sh`. Compaction is automatic and **irreversible**, so durable state is written to disk. |
 | Self-improve over time | ✅ Done | `self-improvement` skill + `capture-learning.sh`. Human-in-the-loop by design. |
 | **Force Auto mode onto Opus 5 / 4.8** | ⚠️ **Not possible** | **In Kiro Web Autonomous mode the agent picks the model automatically — it cannot be pinned.** The only mechanism with a `model` field is custom agents, and `.kiro/agents/` is **not read on Web or Mobile**. |
@@ -52,6 +52,7 @@ git clone https://github.com/consecrating/Claude-Power.git /tmp/claude-power
 cp -r /tmp/claude-power/.kiro/skills   .kiro/
 cp -r /tmp/claude-power/.kiro/steering .kiro/
 cp -r /tmp/claude-power/.kiro/scripts  .kiro/
+cp -r /tmp/claude-power/.kiro/mcp-servers .kiro/
 cp    /tmp/claude-power/AGENTS.md      .        # merge if you already have one
 
 # IDE / CLI only — ignored on Web and Mobile
@@ -75,13 +76,13 @@ would overwrite your own project context. The validator fails if anyone adds the
 
 ---
 
-## The 17 skills
+## The 16 skills
 
 Skills activate automatically when your request matches their description. Only the
 name and description are loaded at startup; the body loads on activation, and
 `references/` load only when the body points to them.
 
-### Core — the five requirements
+### Core — the four requirements
 
 | Skill | Use it for |
 |---|---|
@@ -90,12 +91,6 @@ name and description are loaded at startup; the body loads on activation, and
 | `model-profiles` | Routing work to the right model tier; honest limits on pinning. |
 | `self-improvement` | Turning corrections into durable rules + `capture-learning.sh`. |
 | `autonomous-execution` | The Auto-mode loop: clarify → plan → execute → verify → deliver. |
-
-### Budget Control (NEW)
-
-| Skill | Use it for |
-|---|---|
-| `autonomous-budget` | **ENFORCES token budgets, early termination at 80% quality, burn monitoring, hard stops at 90%.** Prevents Opus 5/4.8 credit exhaustion. |
 
 ### Engineering
 
@@ -115,6 +110,48 @@ name and description are loaded at startup; the body loads on activation, and
 
 ---
 
+## MCP Servers
+
+### opus5-lean — Real Token Efficiency (Hacker Tools)
+
+**This is the HACKER SOLUTION** to credit exhaustion. Not filters and alerts —
+real optimization tools from the `Claude-Opus5` repo.
+
+| Tool | What it does | Cost |
+|---|---|---|
+| `opus5_count` | Count tokens and estimate cost (free via `count_tokens` API) | Free |
+| `opus5_slim` | Strip wasted tokens (code untouched) | Free, offline |
+| `opus5_cache` | Plan cache strategy for 67%+ savings | Free, offline |
+| `opus5_cost` | Calculate scale pricing | Free, offline |
+| `opus5_sweep` | Find cheapest effort level | Requires API key |
+
+**Example output:**
+```
+Cache plan  (claude-opus-5, 5m TTL)
+
+  10,300/13,700 tokens cacheable (75%), 1 breakpoint(s), break-even after 1 hit(s)
+
+  At 5,000 requests/day for 30 days (150,000 requests):
+    without cache  $10,275.00
+    with cache     $3,365.14
+    saved          $6,909.86  (67%)
+```
+
+**Install:**
+```bash
+pip install -e /projects/sandbox/Claude-Opus5
+```
+
+**Usage:**
+```bash
+export PATH="/root/.pyenv/versions/3.11.15/bin:$PATH"
+opus5-lean count prompt.md          # How much does this cost?
+opus5-lean slim prompt.md --stdout  # Strip wasted tokens
+opus5-lean cache segments.json --rpd 5000  # Plan cache strategy
+```
+
+---
+
 ## The token budget, measured
 
 The architecture is **one small always-on file + progressive disclosure for
@@ -123,7 +160,7 @@ everything else**. Measured word counts from this repo:
 | Layer | Cost | When |
 |---|---|---|
 | `AGENTS.md` | 335 words (~450 tokens) | every turn |
-| 17 skill names + descriptions | 1,000 words (~1,300 tokens) | every session, at startup |
+| 16 skill names + descriptions | 912 words (~1,200 tokens) | every session, at startup |
 | 1 `auto` steering description | ~40 words | every session |
 | One skill body | 730–930 words | only when that skill activates |
 | `kiro-config-authoring` steering | 600 words | only when editing `.kiro/` files |
@@ -138,7 +175,7 @@ holds itself to.
 
 ### Pruning
 
-17 skill descriptions is the one unavoidable per-session cost. If you want it smaller,
+16 skill descriptions is the one unavoidable per-session cost. If you want it smaller,
 delete skill folders you do not need — they are independent. Removing all 11
 engineering skills cuts startup cost to about 300 words.
 
@@ -191,10 +228,14 @@ AGENTS.md                        always-on core directives (the token budget)
   steering/
     kiro-config-authoring.md     fileMatch: only when editing .kiro/ config
     verification-discipline.md   auto: before claiming anything is done
-  skills/                        17 skills, progressive disclosure
+  skills/                        16 skills, progressive disclosure
     <skill>/SKILL.md
     <skill>/references/*.md      loaded on demand only
     <skill>/scripts/*.sh         deterministic work
+  mcp-servers/                   MCP servers (opus5-lean for token efficiency)
+    opus5-lean/server.json
+    opus5-lean/server.py
+    opus5-lean/server.sh
   agents/                        IDE + CLI only
     opus-5.md                    deep reasoning
     opus-4-8.md                  delivery / throughput
